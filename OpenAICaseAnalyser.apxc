@@ -1,0 +1,136 @@
+public class OpenAICaseAnalyser {
+    
+    @InvocableMethod(label='Analyse Case with AI' 
+                     description='Send case data to OpenAI and return structured analysis')
+    public static List<CaseAnalysisResult> analyseCase(List<CaseAnalysisRequest> requests) {
+        
+        List<CaseAnalysisResult> results = new List<CaseAnalysisResult>();
+        
+        for (CaseAnalysisRequest req : requests) {
+            results.add(callOpenAI(req));
+        }
+        
+        return results;
+    }
+    
+    private static CaseAnalysisResult callOpenAI(CaseAnalysisRequest req) {
+        
+        CaseAnalysisResult result = new CaseAnalysisResult();
+        
+        try {
+            // Prompt
+            String prompt = 'You are a Salesforce support assistant.\n\n' +
+                'Analyse this case and return ONLY valid JSON.\n\n' +
+                'Case Subject: ' + req.caseSubject + '\n' +
+                'Case Description: ' + req.caseDescription + '\n' +
+                'Account Name: ' + req.accountName + '\n\n' +
+                'Return JSON like:\n' +
+                '{' +
+                '"summary":"...",' +
+                '"priority":"High/Medium/Low",' +
+                '"suggested_response":"A professional, empathetic, and specific customer response that explains the issue, sets expectations, and provides reassurance",' +
+                '"next_action":"..."' +
+                '}'+
+
+                'Guidelines:\n' +
+                '- Be specific, not generic\n' +
+                '- Identify possible root causes\n' +
+                '- Suggest actionable troubleshooting steps\n' +
+                '- Avoid generic apologies\n';
+
+            // Request body
+            Map<String, Object> body = new Map<String, Object>{
+                'model' => 'gpt-3.5-turbo',
+                'messages' => new List<Object>{
+                    new Map<String, Object>{
+                        'role' => 'user',
+                        'content' => prompt
+                    }
+                },
+                'temperature' => 0.2
+            };
+
+            HttpRequest reqHttp = new HttpRequest();
+            reqHttp.setEndpoint('callout:OpenAI_API/v1/chat/completions');
+            reqHttp.setMethod('POST');
+            reqHttp.setHeader('Content-Type', 'application/json');
+            reqHttp.setBody(JSON.serialize(body));
+            reqHttp.setTimeout(30000);
+
+            Http http = new Http();
+            HttpResponse res = http.send(reqHttp);
+			System.debug('OpenAI RAW Response: ' + res.getBody());
+            if (res.getStatusCode() == 200) {
+                
+                Map<String, Object> response = 
+                    (Map<String, Object>) JSON.deserializeUntyped(res.getBody());
+
+                List<Object> choices = (List<Object>) response.get('choices');
+                Map<String, Object> firstChoice = (Map<String, Object>) choices[0];
+                Map<String, Object> message = (Map<String, Object>) firstChoice.get('message');
+
+                String content = (String) message.get('content');
+
+                // Parse AI JSON safely
+                try {
+                    Map<String, Object> ai = 
+                        (Map<String, Object>) JSON.deserializeUntyped(content);
+
+                    result.summary = (String) ai.get('summary');
+                    result.priority = (String) ai.get('priority');
+                    result.suggestedResponse = (String) ai.get('suggested_response');
+                    result.nextAction = (String) ai.get('next_action');
+                    result.success = true;
+
+                } catch (Exception parseEx) {
+                    result.success = false;
+                    result.errorMessage = 'Parsing failed: ' + content;
+                }
+
+            } else {
+                result.success = false;
+                result.errorMessage = 'API Error: ' + res.getBody();
+            }
+
+        } catch (Exception e) {
+            result.success = false;
+            result.errorMessage = e.getMessage();
+        }
+
+        return result;
+    }
+
+    // INPUT
+    public class CaseAnalysisRequest {
+        @InvocableVariable(required=true)
+        public String caseSubject;
+
+        @InvocableVariable(required=true)
+        public String caseDescription;
+
+        @InvocableVariable
+        public String accountName;
+    }
+
+    // OUTPUT
+    public class CaseAnalysisResult {
+        @InvocableVariable
+        public String summary;
+
+        @InvocableVariable
+        public String priority;
+
+        @InvocableVariable
+        public String suggestedResponse;
+
+        @InvocableVariable
+        public String nextAction;
+
+        @InvocableVariable
+        public Boolean success;
+
+        @InvocableVariable
+        public String errorMessage;
+    }
+    
+}
