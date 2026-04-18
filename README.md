@@ -28,6 +28,16 @@ Salesforce Case Created
 
 ---
 
+## 🔍 Technical Highlights
+
+- Designed Invocable Apex method to enable Flow-to-AI interaction
+- Implemented secure API integration using Named Credentials
+- Engineered structured prompts to enforce JSON-based AI responses
+- Built robust JSON parsing logic to extract and map AI outputs to Salesforce fields
+- Handled asynchronous execution using Flow to avoid UI blocking
+
+---
+
 ## 🛠️ Tech Stack
 
 - Salesforce Flow (Record-Triggered Automation)
