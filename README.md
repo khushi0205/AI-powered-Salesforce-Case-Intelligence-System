@@ -1,4 +1,4 @@
-# AI-powered Salesforce Case Intelligence System
+# AI Case Copilot for Salesforce (Case Intelligence System)
 
 An AI-driven case analysis system built within Salesforce that automatically processes incoming support cases and generates structured insights including summaries, priority classification, recommended actions, and customer-ready responses.
 
